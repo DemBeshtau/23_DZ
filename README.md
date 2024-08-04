@@ -20,4 +20,32 @@
 &ensp;&ensp;&ensp;Ansible (https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html).<br/>
 &ensp;&ensp;Все действия проводились с использованием Vagrant 2.4.0, VirtualBox 7.0.18, Ansible 9.4.0 и образа CentOS 7 версии 1804_2. <br/>
 ### Ход решения ###
-1. Установка необходимого программ
+1. Установка необходимого программного обеспечения (ПО):
+```shell
+yum install -y bind bind-utils ntp
+```
+2. Конфигурирование resolv.conf на серверах и клиентах:
+```shell
+[vagrant@ns01 ~]$ cat /etc/resolv.conf
+domain dns.lab
+search dns.lab
+nameserver 192.168.56.10
+
+[vagrant@ns02 ~]$ cat /etc/resolv.conf 
+domain dns.lab
+search dns.lab
+nameserver 192.168.56.11
+
+[vagrant@client1 ~]$ cat /etc/resolv.conf 
+domain dns.lab
+search dns.lab
+nameserver 192.168.56.10
+nameserver 192.168.56.11
+
+[vagrant@client2 ~]$ cat /etc/resolv.conf 
+domain dns.lab
+search dns.lab
+nameserver 192.168.56.10
+nameserver 192.168.56.11
+```
+
