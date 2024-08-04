@@ -263,5 +263,145 @@ web1 		IN	A	192.168.56.15
 ```
 2. Реализация технологии Split-DNS. Данная технология реализуется с помощью представлений (view), для каждого отдельного access-листа (acl). В каждое представление добавляются только те зоны, которые разрешено видеть хостам, адреса которых указаны в access-листе. Все ранее описанные зоны должны быть перенесены в модули view. Вне этих модулей зон быть не должно. Зона any должна завершать конфигурацию.
 ```shell
+...
+key "client1-key" {
+	algorithm hmac-sha256;
+	secret "F45GQqtFRmiskdsxOU/FrAhZfsi3wTtDtD2vAQL4Bn4=";
+};
 
+key "client2-key" {
+	algorithm hmac-sha256;
+	secret "taugThYY7DLafWBaDyBx/t29bDPR3buBdNgCK4JWCOs=";
+};
+
+
+// ZONE TRANSFER WITH TSIG
+include "/etc/named.zonetransfer.key"; 
+server 192.168.56.11 {
+    keys { "zonetransfer.key"; };
+};
+
+acl client1 { !key client2-key; key client1-key; 192.168.56.15; };
+acl client2 { !key client1-key; key client2-key; 192.168.56.16; };
+
+view "client1" {
+	match-clients { client1; };
+	
+	zone "dns.lab" {
+		type master;
+		file "/etc/named/named.dns.lab.client";
+		also-notify { 192.168.56.11 key client1-key; };
+	};
+
+	zone "newdns.lab" {
+		type master;
+		file "/etc/named/named.newdns.lab";
+		also-notify { 192.168.56.11 key client1-key; };
+	};
+};
+
+view "client2" {
+	match-clients { client2; };
+
+	zone "dns.lab" {
+		type master;
+		file "/etc/named/named.dns.lab";
+		also-notify { 192.168.56.11 key client2-key; };
+	};
+
+	zone "56.168.192.in-addr.arpa" {
+		type master;
+		file "/etc/named/named.dns.lab.rev";
+		also-notify { 192.168.56.11 key client2-key; };
+	};
+};
+
+view "default" {
+	match-clients { any; };
+
+	// root zone
+	zone "." IN {
+		type hint;
+		file "named.ca";
+	};
+
+	// zones like localhost
+	include "/etc/named.rfc1912.zones";
+	// root's DNSKEY
+	include "/etc/named.root.key";
+
+	// lab's zone
+	zone "dns.lab" {
+    		type master;
+    		allow-transfer { key "zonetransfer.key"; };
+    		file "/etc/named/named.dns.lab";
+	};
+
+	// lab's zone reverse
+	zone "56.168.192.in-addr.arpa" {
+    		type master;
+    		allow-transfer { key "zonetransfer.key"; };
+    		file "/etc/named/named.dns.lab.rev";
+	};
+
+	// lab's ddns zone
+	zone "ddns.lab" {
+    		type master;
+    		allow-transfer { key "zonetransfer.key"; };
+    		allow-update { key "zonetransfer.key"; };
+    		file "/etc/named/named.ddns.lab";
+	};
+
+	// lab's newdns zone
+	zone "newdns.lab" {
+    		type master;
+    		allow-transfer { key "zonetransfer.key"; };
+    		file "/etc/named/named.newdns.lab";
+	};
+};
+```
+&ensp;&ensp;На сервере ns02, конфигурирование Split-DNS выполняется аналогично, с указанием type slave, адреса мастер сервера и пути к файлу с настройками зоны на мастер сервере.
+3. Перезапуск сервиса named на серверах:
+```shell
+systemctl restart named
+```
+&ensp;&ensp;Стоит отметить, что после ручного конфигурирования DNS, сервис named не запустится из-за работы системы SELinux. Для того, чтобы устранить данную проблему на DNS-серверах, необходимо воспользоваться утилитами audit2why и audit2allow. С помощью утилиты audit2allow осуществляется анализ audit-лога /var/log/audit/audit.log с целью выяснения/уточнения причины отказа в запуске сервиса. Как правило, причина отказа в запуске сервиса named заключается в его несоответствии политикам безопасности SELinux. Для того, чтобы запутить сервис named, необходимо воспользоваться утилитой audit2allow, которая позволяет сформировать загружаемый модуль разрешающего правила политики безопасности. После чего данный модуль необходимо загрузить с помощью команды semodule -i.<br/>
+&ensp;&ensp;Для данного стенда выявлена интересная особенность - при конфигурировании с помощью Ansible, система SELinux позволила перезапустить сервис named с новой конфигурацией.
+```shell
+[root@client1 ~]# grep "named" /var/log/audit/audit.log | audit2why
+type=AVC msg=audit(1722773754.620:1294): avc:  denied  { search } for  pid=4290 comm="isc-worker0000" name="net" dev="proc" ino=7077 scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=dir
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1722773754.621:1295): avc:  denied  { search } for  pid=4290 comm="isc-worker0000" name="net" dev="proc" ino=7077 scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=dir
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1722773882.911:1405): avc:  denied  { search } for  pid=4518 comm="isc-worker0000" name="net" dev="proc" ino=7077 scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=dir
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1722773882.912:1406): avc:  denied  { search } for  pid=4518 comm="isc-worker0000" name="net" dev="proc" ino=7077 scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=dir
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+[root@client1 ~]# audit2allow -M named --debug < /var/log/audit/audit.log
+******************** IMPORTANT ***********************
+To make this policy package active, execute:
+
+semodule -i named.pp
+
+[root@client1 ~]# semodule -i named.pp
 ```
