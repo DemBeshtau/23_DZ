@@ -238,7 +238,30 @@ systemctl restart named
 &ensp;&ensp;Для автоматического конфигурирования инфраструктуры с помощью Ansible, подготовлен плейбук playbook_dns.yml.
 ### Настройка Split-DNS ### 
 &ensp;&ensp;Существуют прописанные зоны dns.lab и newdns.lab. По условию задания client1 должен видеть запись web1.dns.lab и не видеть web2.dns.lab. Client2 может видеть обе записи из домена dns.lab, но не должен видеть записи домена newdns.lab. Данные настройки осуществляются с помощью технолгии Split-DNS.
-1. Подготовка дополнительного файла зоны dns.lab.
+1. Подготовка дополнительного файла зоны dns.lab named.dns.lab.client:
+```shell
+[root@ns01 ~]# cat /etc/named/named.dns.lab.client 
+$TTL 3600
+$ORIGIN dns.lab.
+@               IN      SOA     ns01.dns.lab. root.dns.lab. (
+                            2711201408 ; serial
+                            3600       ; refresh (1 hour)
+                            600        ; retry (10 minutes)
+                            86400      ; expire (1 day)
+                            600        ; minimum (10 minutes)
+                        )
+
+                IN      NS      ns01.dns.lab.
+                IN      NS      ns02.dns.lab.
+
+; DNS Servers
+ns01            IN      A       192.168.56.10
+ns02            IN      A       192.168.56.11
+
+; Web
+web1 		IN	A	192.168.56.15
+```
+2. Реализация технологии Split-DNS. Данная технология реализуется с помощью представлений (view), для каждого отдельного access-листа (acl). В каждое представление добавляются только те зоны, которые разрешено видеть хостам, адреса которых указаны в access-листе. Все ранее описанные зоны должны быть перенесены в модули view. Вне этих модулей зон быть не должно. Зона any должна завершать конфигурацию.
 ```shell
 
 ```
