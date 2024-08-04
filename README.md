@@ -201,6 +201,7 @@ www		IN	A	192.168.56.16
 ```
 7. Добавление информации о новой зоне в named.conf на серверах ns01 и ns02:
 ```shell
+[root@ns01 ~]# cat /etc/named.conf 
 ...
 // lab's newdns zone
 zone "newdns.lab" {
@@ -209,6 +210,24 @@ zone "newdns.lab" {
     allow-update { key "zonetransfer.key"; };
     file "/etc/named/named.newdns.lab";
 };
+[root@ns02 ~]# cat /etc/named.conf
+...
+// lab's newdns zone
+zone "newdns.lab" {
+    type slave;
+    masters { 192.168.56.10; };
+    file "/etc/named/named.newdns.lab";
+};
 ```
-
+8. Проверка работоспособности выполненных настроек DNS:
+```shell
+[vagrant@client1 ~]$ dig @192.168.56.10 ns01.dns.lab +short
+192.168.56.10
+[vagrant@client1 ~]$ dig @192.168.56.10 ns02.dns.lab +short
+192.168.56.11
+[vagrant@client1 ~]$ dig @192.168.56.10 web1.dns.lab +short
+192.168.56.15
+[vagrant@client1 ~]$ dig @192.168.56.10 web2.dns.lab +short
+192.168.56.16
+```
 
