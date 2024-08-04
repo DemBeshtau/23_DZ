@@ -20,6 +20,7 @@
 &ensp;&ensp;&ensp;Ansible (https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html).<br/>
 &ensp;&ensp;Все действия проводились с использованием Vagrant 2.4.0, VirtualBox 7.0.18, Ansible 9.4.0 и образа CentOS 7 версии 1804_2. <br/>
 ### Ход решения ###
+### Настройка DNS ###
 1. Установка необходимого программного обеспечения (ПО):
 ```shell
 yum install -y bind bind-utils ntp
@@ -219,7 +220,11 @@ zone "newdns.lab" {
     file "/etc/named/named.newdns.lab";
 };
 ```
-8. Проверка работоспособности выполненных настроек DNS:
+8. Перезапуск сервиса named на серверах:
+```shell
+systemctl restart named
+```
+9. Проверка работоспособности выполненных настроек DNS:
 ```shell
 [vagrant@client1 ~]$ dig @192.168.56.10 ns01.dns.lab +short
 192.168.56.10
@@ -230,4 +235,7 @@ zone "newdns.lab" {
 [vagrant@client1 ~]$ dig @192.168.56.10 web2.dns.lab +short
 192.168.56.16
 ```
+&ensp;&ensp; Для автоматического конфигурирования инфраструктуры с помощью Ansible, подготовлен плейбук playbook_dns.yml.
+### Настройка Split-DNS ### 
+
 
