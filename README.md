@@ -422,3 +422,4 @@ semodule -i my_isc-worker0000.pp
 [vagrant@client2 ~]$ dig www.newdns.lab +short
 [vagrant@client2 ~]$ 
 ```
+&ensp;&ensp;Для автоматического конфигурирования инфраструктуры с помощью Ansible, подготовлен плейбук playbook_split.yml.
