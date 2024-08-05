@@ -368,7 +368,7 @@ systemctl restart named
 &ensp;&ensp;Стоит отметить, что после ручного конфигурирования DNS, сервис named не запустится из-за работы системы SELinux. Для того, чтобы устранить данную проблему на DNS-серверах, необходимо воспользоваться утилитами audit2why и audit2allow. С помощью утилиты audit2allow осуществляется анализ audit-лога /var/log/audit/audit.log с целью выяснения/уточнения причины отказа в запуске сервиса. Как правило, причина отказа в запуске сервиса named заключается в его несоответствии политикам безопасности SELinux. Для того, чтобы запутить сервис named, необходимо воспользоваться утилитой audit2allow, которая позволяет сформировать загружаемый модуль разрешающего правила политики безопасности. После чего данный модуль необходимо загрузить с помощью команды semodule -i.<br/>
 &ensp;&ensp;Для данного стенда выявлена интересная особенность - при конфигурировании с помощью Ansible, система SELinux позволила перезапустить сервис named с новой конфигурацией.
 ```shell
-[root@client1 ~]# grep "named" /var/log/audit/audit.log | audit2why
+[root@client1 ~]# audit2why < /var/log/audit/audit.log 
 type=AVC msg=audit(1722773754.620:1294): avc:  denied  { search } for  pid=4290 comm="isc-worker0000" name="net" dev="proc" ino=7077 scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=dir
 
 	Was caused by:
@@ -397,11 +397,28 @@ type=AVC msg=audit(1722773882.912:1406): avc:  denied  { search } for  pid=4518 
 
 		You can use audit2allow to generate a loadable module to allow this access.
 
-[root@client1 ~]# audit2allow -M named --debug < /var/log/audit/audit.log
+[root@client1 ~]# audit2allow -M my_isc-worker0000 --debug < /var/log/audit/audit.log
 ******************** IMPORTANT ***********************
 To make this policy package active, execute:
 
-semodule -i named.pp
+semodule -i my_isc-worker0000.pp
 
-[root@client1 ~]# semodule -i named.pp
+[root@client1 ~]# semodule -i my_isc-worker0000.pp
+```
+4. Проверка работоспособности выполненных настроек Split-DNS:
+```shell
+[vagrant@client1 ~]$ dig www.newdns.lab +short
+192.168.56.16
+192.168.56.15
+[vagrant@client1 ~]$ dig web1.dns.lab +short
+192.168.56.15
+[vagrant@client1 ~]$ dig web2.dns.lab +short
+[vagrant@client1 ~]$
+
+[vagrant@client2 ~]$ dig web1.dns.lab +short
+192.168.56.15
+[vagrant@client2 ~]$ dig web2.dns.lab +short
+192.168.56.16
+[vagrant@client2 ~]$ dig www.newdns.lab +short
+[vagrant@client2 ~]$ 
 ```
