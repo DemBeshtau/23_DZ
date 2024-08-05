@@ -1,0 +1,18 @@
+---
+- hosts: all
+  become: true
+  tasks:
+     
+  - name: copy split-dns configuration on servers 
+    copy: 
+      src: "{{ ansible_hostname }}.named.conf.split"
+      dest: /etc/named.conf 
+      owner: root 
+      group: named 
+      mode: 0640
+    when: '"servers" in group_names' 
+ 
+  - name: restart named service
+    service: 
+      name: named 
+      state: restarted

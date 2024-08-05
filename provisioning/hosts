@@ -1,0 +1,7 @@
+[servers]
+ns01 ansible_host=192.168.56.10 ansible_user=vagrant ansible_password=vagrant
+ns02 ansible_host=192.168.56.11 ansible_user=vagrant ansible_password=vagrant
+
+[clients]
+client1 ansible_host=192.168.56.15 ansible_user=vagrant ansible_password=vagrant
+client2 ansible_host=192.168.56.16 ansible_user=vagrant ansible_password=vagrant
